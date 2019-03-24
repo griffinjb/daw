@@ -16,6 +16,8 @@ import matplotlib.pyplot as plt
 import asyncio
 from time import sleep
 from queue import Queue
+from scipy.io import wavfile
+from collections import deque
 
 #########################################################################
 # Main Audio Class
@@ -34,7 +36,8 @@ class daw:
 			self.inQ.put(0)
 		print('DAW initialized')
 		# self.output_gen = self.test1()
-		self.output_gen = self.test2()
+		# self.output_gen = self.test2()
+		self.output_gen = self.test3()
 
 	def run(self):
 		self.play()
@@ -61,6 +64,13 @@ class daw:
 	def test2(self):
 		i = self.inputGen()
 		for v in i:
+			yield(v)
+
+	def test3(self):
+		wv = self.fileGen()
+		sv = self.sdelay(wv)
+		nw = self.autolimiter(sv)
+		for v in nw:
 			yield(v)
 
 
@@ -109,8 +119,15 @@ class daw:
 		print('temp fir')
 
 
-	def delay(self):
-		print('temp delay')
+	def sdelay(self,g,delay=1000,decay=.5):
+		dline = deque()
+		for i in range(delay):
+			dline.append(0)
+		for v in g:
+			dval = dline.popleft()
+			v += (dval * decay)
+			dline.append(v)
+			yield(v)
 
 	def inputGen(self):
 		while True:
@@ -119,7 +136,11 @@ class daw:
 				yield(v)
 
 	def fileGen(self):
-		print('tempfg')
+		a = wavfile.read('dkit.wav')[1]
+		while True:
+			for v in a[:,0]:
+				yield(v)
+
 
 #########################################################################
 # Device Interface
@@ -127,8 +148,8 @@ class daw:
 	def callback(self,indata, outdata, frames, time, status):
 		if status:
 			print(status)
-		for dat in np.sum(indata[:,:],axis=1):
-			self.inQ.put(dat)
+		# for dat in np.sum(indata[:,:],axis=1):
+		# 	self.inQ.put(dat)
 		outdata[:,0:2] = np.transpose(np.array([self.output_gen.__next__() for _ in range(self.bufferSize)],ndmin=2).repeat(2,axis=0))
 
 
