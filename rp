@@ -1,0 +1,2 @@
+python plot_buffer.py &
+python -i daw.py
