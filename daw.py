@@ -5,6 +5,10 @@
 # Audio Synthesis Workstation
 #########################################################################
 
+#########################################################################
+# Todo
+#########################################################################
+# increase yield size of gens to meet time constraint
 
 #########################################################################
 # Imports
@@ -18,6 +22,7 @@ from time import sleep
 from queue import Queue
 from scipy.io import wavfile
 from collections import deque
+from os import listdir,getcwd
 
 #########################################################################
 # Main Audio Class
@@ -67,12 +72,10 @@ class daw:
 			yield(v)
 
 	def test3(self):
-		wv = self.fileGen()
-		sv = self.sdelay(wv)
-		nw = self.autolimiter(sv)
-		for v in nw:
+		dg = self.dirGen('testwavs')
+		lg = self.autolimiter(dg)
+		for v in lg:
 			yield(v)
-
 
 	#####################################################################
 	# Building Blocks
@@ -88,6 +91,16 @@ class daw:
 
 			yield(v)
 			ctr += 1
+
+	def dirGen(self,path):
+		wd = getcwd()
+		fns = [f for f in listdir(path)]
+		gens = [self.fileGen(wd+'/'+path+'/'+fn) for fn in fns]
+		while True:
+			v = 0
+			for g in gens:
+				v += g.__next__()
+			yield(v)
 
 	def singen(self,f=440):
 		x = np.linspace(0,1,self.Fs)
@@ -115,6 +128,20 @@ class daw:
 		for v in g:
 			yield(gain*v)
 
+	def windowedSinc(self,g,width=3):
+		kernel = np.sin(np.linspace(-width,width,2*width+1))/np.linspace(-width,width,2*width+1)
+		kernel[width] = 1
+
+		buf = deque()
+		for i in range(width*2+1):
+			buf.append(0)
+
+		for v in g:
+			buf.append(v)
+			out = buf.popleft()
+			yield(sum(buf*kernel))
+
+
 	def fir(self):
 		print('temp fir')
 
@@ -135,8 +162,8 @@ class daw:
 			if v:
 				yield(v)
 
-	def fileGen(self):
-		a = wavfile.read('dkit.wav')[1]
+	def fileGen(self,fn):
+		a = wavfile.read(fn)[1]
 		while True:
 			for v in a[:,0]:
 				yield(v)
